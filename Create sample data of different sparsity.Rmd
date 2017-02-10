@@ -1,0 +1,110 @@
+---
+title: "Sampling data into different sparsity"
+output: html_document
+---
+```{r, cache=TRUE}
+setwd("E:/Data Science Study/Machine Learning/Recommender System/amazon data/processed")
+review_4_9M<- read.csv("review.csv")
+review_unique <- unique(review_4_9M)
+review_sparse <-read.csv('review_sample_not_treated_48305rows.csv')
+
+library(dplyr)
+library(ggplot2)
+```
+
+#Analysis rating frequencies
+##Reviewer
+```{r, warning=FALSE}
+reviewer_rating_freq = review_unique %>% group_by(reviewerID)%>% summarise(n = n())
+
+cat("porportion of reviewers having 1 rating: ",round(nrow(filter(reviewer_rating_freq, n == 1))/nrow(reviewer_rating_freq)*100,2),"%")
+cat("porportion of reviewers having less than 10 ratings: ",round(nrow(filter(reviewer_rating_freq, n < 10))/nrow(reviewer_rating_freq)*100,2),"%")
+
+ggplot(reviewer_rating_freq, aes(x = n)) + geom_bar(aes(y = (..count..)/sum(..count..))) + xlim(0,15) + ggtitle("reviewer rating frequencies") + ylab("proportion of reviewers") + xlab("number of ratings")
+ggplot(reviewer_rating_freq, aes(x = n)) + geom_bar(aes(y = (..count..)/sum(..count..))) + xlim(10,80) + ggtitle("reviewer rating frequencies for reviewers with above 10 ratings") + ylab("number of reviewers") + xlab("number of ratings")
+```
+
+##Item
+```{r, warning=FALSE}
+item_rating_freq = review_unique %>% group_by(asin)%>% summarise(n = n())
+
+cat("porportion of items having 1 rating: ",round(nrow(filter(item_rating_freq, n == 1))/nrow(item_rating_freq)*100,2),"%")
+cat("porportion of items having less than 10 ratings: ",round(nrow(filter(item_rating_freq, n < 10))/nrow(item_rating_freq)*100,2),"%")
+
+ggplot(item_rating_freq, aes(x = n)) + geom_bar(aes(y = (..count..)/sum(..count..))) + xlim(0,50) + ggtitle("item rating frequencies") + ylab("proportion of items") + xlab("number of ratings")
+ggplot(item_rating_freq, aes(x = n)) + geom_bar(binwidth = 10, aes(y = (..count..)/sum(..count..))) + xlim(30,1000) + ggtitle("item rating frequencies for items with above 30 ratings") + ylab("proportion of items") + xlab("number of ratings")
+```
+
+##Rating
+```{r}
+rating_freq = review_unique %>% group_by(overall)%>% summarize(n = n())
+ggplot(rating_freq, aes(x = overall, y = n/sum(n))) + geom_bar(stat = 'identity') + ggtitle("rating frequencies") + ylab("proportion of each ratings") + xlab("rating")
+```
+
+#Generate sampled data of different level of sparsity
+##User treated 
+```{r}
+user_threshold = 50
+selected_reviewer_list = filter(reviewer_rating_freq, n > user_threshold)
+user_treated_rating = merge(review_unique, selected_reviewer_list)
+#write.csv(user_treated_rating,"reviews_density_only user_treated.csv")
+
+user_treated_reviewer_freq = user_treated_rating %>% group_by(reviewerID)%>%summarise(n = n())
+ggplot(user_treated_reviewer_freq, aes(x = n)) + geom_bar(binwidth = 10, aes(y = (..count..)/sum(..count..))) + xlim(0,300) + ggtitle("reviewer rating frequencies") + ylab("proportion of reviewers") + xlab("number of ratings")
+
+user_treated_item_freq = user_treated_rating %>% group_by(asin)%>%summarise(n = n())
+ggplot(user_treated_item_freq, aes(x = n)) + geom_bar(aes(y = (..count..)/sum(..count..))) + ggtitle("Item rating frequencies") + ylab("proportion of items") + xlab("number of ratings")
+```
+
+##Item treated 
+```{r}
+item_threshold = 50
+selected_item_list = filter(item_rating_freq, n > item_threshold)
+#select a random sample 
+selected_item_list_sample = sample_n(selected_item_list, 300)
+item_treated_rating = merge(review_unique, selected_item_list_sample)
+#write.csv(item_treated_rating,"reviews_density_only item_treated.csv")
+
+item_treated_reviewer_freq = item_treated_rating %>% group_by(reviewerID)%>%summarise(n = n())
+ggplot(item_treated_reviewer_freq, aes(x = n)) + geom_bar(aes(y = (..count..)/sum(..count..))) + ggtitle("reviewer rating frequencies") + ylab("proportion of reviewers") + xlab("number of ratings")
+
+item_treated_item_freq = item_treated_rating %>% group_by(asin)%>%summarise(n = n())
+ggplot(item_treated_item_freq, aes(x = n)) + geom_bar(binwidth = 20, aes(y = (..count..)/sum(..count..))) + ggtitle("Item rating frequencies") + ylab("proportion of items") + xlab("number of ratings")
+```
+
+##Both treated
+```{r}
+filter_sparsity = function(user_threshold, item_threshold, user_rating_freq, item_rating_freq, review_unique)
+{
+  selected_reviewer_list = filter(reviewer_rating_freq, n > user_threshold)
+  selected_item_list = filter(item_rating_freq, n > item_threshold)
+  user_treated_rating = merge(review_unique, selected_reviewer_list)
+  both_treated_rating = merge(user_treated_rating, selected_item_list)
+  return(both_treated_rating)
+}
+
+both_treated_rating = filter_sparsity(5, 5, user_rating_freq, item_rating_freq, review_unique)
+#write.csv(both_treated_rating, "both_treated_rating.csv")
+```
+
+## Statistics of the sampled data
+```{r}
+statistic = function(df){
+  num_rows<- as.numeric(nrow(df))
+  unique_users<- as.numeric(length(unique(df$reviewerID)))
+  unique_items<- as.numeric(length(unique(df$asin)))
+  density <- (num_rows/(unique_users*unique_items))*100
+  print('The number of rows is:')
+  print(num_rows)
+  print('The unique number of users is:')
+  print(unique_users)
+  print('The unique number of items is:')
+  print(unique_items)
+  print('The density of the data is:')
+  print(density)
+}
+
+statistic(user_treated_rating)
+statistic(item_treated_rating)
+statistic(review_sparse)
+```
