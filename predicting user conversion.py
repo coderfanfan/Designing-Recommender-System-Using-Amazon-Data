@@ -17,8 +17,8 @@ from sklearn.feature_selection import RFECV
 from sklearn.metrics import classification_report
 from sklearn.model_selection import cross_val_predict
 
-#predict airbnb new users' conversion within 60 days after signing up
-
+#predicting airbnb new users' conversion within 60 days after signing up
+#data source: https://www.kaggle.com/c/airbnb-recruiting-new-user-bookings/data
 
 
 ########################load original datasets################################
@@ -148,7 +148,7 @@ user.book.value_counts()
 ###give higher weight to class 1: 142089.0/71326.0 = 1.99 instead of 1
         
 #split features and targets 
-X = user.drop(['book','user_id','date_account_created','timestamp_first_active',
+X = user.drop(['book','id','date_account_created','timestamp_first_active',
 'date_first_booking','country_destination','book_lag','age'],axis =1)
 Y = user.book
 
@@ -158,8 +158,8 @@ Xtrain, Xtest, Ytrain, Ytest = train_test_split(X, Y, test_size = 0.2, stratify 
 
 
 #write processed data to csv for building discriptive models in R
-processed = pd.concat([X,Y], axis = 1)
-processed.to_csv("processed.csv")
+#processed = pd.concat([X,Y], axis = 1)
+#processed.to_csv("processed.csv")
 
 ################# Logistic regression with L2 Regularization ###################
 # create an logistic classifier instance 
@@ -217,9 +217,9 @@ max_features = 50, random_state=0,class_weight = {1:1.99,0:1})
 # Train the model, select model based on cross-validation performance
 scores_rfc = cross_validate(rfc, Xtrain, Ytrain, scoring= ['f1','roc_auc'],
                             cv=5, return_train_score=False)
-sorted(scores.keys())
-print("F1: %0.2f (+/- %0.2f)" % (scores_rfc['test_f1'].mean(), scores_rfc['test_f1'].std() * 2)) #0.56
-print("AUC: %0.2f (+/- %0.2f)" % (scores_rfc['test_roc_auc'].mean(), scores_rfc['test_roc_auc'].std() * 2)) #0.71
+
+print("F1: %0.2f (+/- %0.2f)" % (scores_rfc['test_f1'].mean(), scores_rfc['test_f1'].std() * 2)) #0.58
+print("AUC: %0.2f (+/- %0.2f)" % (scores_rfc['test_roc_auc'].mean(), scores_rfc['test_roc_auc'].std() * 2)) #0.76
 
 # generalization performance on test set
 predicted_rfc = cross_val_predict(rfc, Xtest, Ytest, cv=10)
@@ -230,20 +230,19 @@ print(report_rfc)
 ########################## Gradiant Boosting Tree ############################
 grd = GradientBoostingClassifier(n_estimators = 20, learning_rate=0.1, 
       max_depth=5, min_samples_split=10, max_leaf_nodes = 30, min_impurity_decrease=0.01, random_state=0)
-##no parameter for class weight yet 
+## no parameter for class weight yet (use over sampling instead)
 
 # Train the model, select model based on cross-validation performance
 scores_grd = cross_validate(grd, Xtrain, Ytrain, scoring= ['f1','roc_auc'],
                             cv=2, return_train_score=False)
                             
-print("F1: %0.2f (+/- %0.2f)" % (scores_rfc['test_f1'].mean(), scores_grd['test_f1'].std() * 2)) #0.56
-print("AUC: %0.2f (+/- %0.2f)" % (scores_rfc['test_roc_auc'].mean(), scores_grd['test_roc_auc'].std() * 2)) #0.71
+print("F1: %0.2f (+/- %0.2f)" % (scores_rfc['test_f1'].mean(), scores_grd['test_f1'].std() * 2)) #0.58
+print("AUC: %0.2f (+/- %0.2f)" % (scores_rfc['test_roc_auc'].mean(), scores_grd['test_roc_auc'].std() * 2)) #0.76
 
 # generalization performance on test set
 predicted_grd = cross_val_predict(grd, Xtest, Ytest, cv=10)
 report_grd = classification_report(Ytest, predicted_grd)
 print(report_grd) 
-
 
 
 ########################## Naive Bayes ########################################
@@ -264,9 +263,8 @@ report_nb = classification_report(Ytest, predicted_nb)
 print(report_nb)
 
 
-
 ########################### Business Impact ###################################
-best_prediction = predicted_clf
+best_prediction = predicted_rfc
 
 #conversion rate of two segments
 df_results = DataFrame({'pred':best_prediction, 'actual':Ytest.values})
@@ -278,6 +276,6 @@ conv_rate_seg_nbook = float(seg_nbook[seg_nbook.actual == 1].shape[0])/float(seg
 print ('The conversion rate of the predicted booking segment: {:04.2f}%').format(conv_rate_seg_book * 100)
 print ('The conversion rate of the predicted non-booking segment: {:04.2f}%').format(conv_rate_seg_nbook * 100)
 print ('The conversion rate of the predicted booking segment is {:03.2f} times of the predicted non-booking segment').format(conv_rate_seg_book/conv_rate_seg_nbook)
-
-
-
+## the users predicted as non-booking could be targeted with with marketing activities such as coupon to increase their conversion rate
+## the users can be separated into more segments based on their ranking of propensity to convert to achieve more sophisticated segmentation and targeting
+## to be continued: adding more user activity features into the model
