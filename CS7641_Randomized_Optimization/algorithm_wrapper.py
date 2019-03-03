@@ -1,6 +1,7 @@
 """
 wrap mlrose optmization algorithms with fixed sets of "common" hyper parameters to be used across problems
-for comparing performance across algorithms
+for comparing performance across algorithms.
+create batch_optimize UDF to optimize multiple problems in batch and collect summary
 """
 
 import mlrose2 as mlrose
