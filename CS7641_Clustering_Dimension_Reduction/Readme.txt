@@ -1,4 +1,4 @@
-Codes corresponding to each part in the analysis pdf:
+Codes corresponding to each part of the analysis.pdf:
 Part 1: Clustering.ipynb
 Part 2: Dimension_Reduction.ipynb
 Part 3: Clustering_on_projected_data.ipynb
